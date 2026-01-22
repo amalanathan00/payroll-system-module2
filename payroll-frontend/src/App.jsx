@@ -1,35 +1,86 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
+import { useState, useEffect } from 'react';
 import './App.css'
+import StatutoryRulesPage from './pages/StatutoryRulesPage';
+import TaxSlabPage from './pages/TaxSlabPage';
+
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentPage, setCurrentPage] = useState('statutory');
 
+
+ /* useEffect(() => {
+    // Simulate auth check (replace with real auth later)
+    const checkAuth = async () => {
+      try {
+        // Check if user is authenticated
+        const response = await fetch('http://localhost:5000/api/auth/me', {
+          credentials: 'include'
+        });
+        if (!response.ok) {
+          // Redirect to login if not authenticated
+          window.location.href = '/login';
+        }
+      } catch (error) {
+        console.log('Auth check:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+    */
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">
+            Payroll System - Module 2
+          </h1>
+          <div className="flex gap-4">
+            <button
+              onClick={() => setCurrentPage('statutory')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                currentPage === 'statutory'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              Statutory Rules
+            </button>
+            <button
+              onClick={() => setCurrentPage('tax')}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+                currentPage === 'tax'
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              }`}
+            >
+              Tax Slabs
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {currentPage === 'statutory' && <StatutoryRulesPage />}
+        {currentPage === 'tax' && <TaxSlabPage />}
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
