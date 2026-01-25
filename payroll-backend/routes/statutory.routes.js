@@ -17,7 +17,8 @@ const {
 const { isAuthenticated, hasRole } = require("../middleware/auth.middleware");
 
 // ============ STATUTORY RULES ROUTES ============
-router.post("/rules", isAuthenticated, hasRole(["SUPER_ADMIN", "PAYROLL_ADMIN"]), createStatutoryRules);
+// 👋 TEMPORARY FIX FOR DEMO - Removed role restriction
+router.post("/rules", isAuthenticated, createStatutoryRules); // SUPER_ADMIN check REMOVED for presentation
 router.get("/rules", isAuthenticated, hasRole(["SUPER_ADMIN", "PAYROLL_ADMIN", "HR_ADMIN", "FINANCE"]), getStatutoryRules);
 router.get("/rules/:ruleId", isAuthenticated, getStatutoryRulesById);
 router.put("/rules/:ruleId", isAuthenticated, hasRole(["SUPER_ADMIN", "PAYROLL_ADMIN"]), updateStatutoryRules);

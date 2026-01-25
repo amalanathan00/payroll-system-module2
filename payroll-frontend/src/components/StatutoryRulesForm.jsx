@@ -1,54 +1,57 @@
+// ✅ FIXED VERSION - Matches your backend exactly
 import React, { useState } from 'react';
 import axios from 'axios';
 
 export default function StatutoryRuleForm({ onSuccess }) {
   const [formData, setFormData] = useState({
     country: 'India',
-    state: '',
-    effectiveYear: new Date().getFullYear(),
-    ruleType: 'PF_THRESHOLD',
-    description: '',
-    employeeContribution: '',
-    employerContribution: '',
-    effectiveFrom: '',
-    effectiveTo: ''
+    state: 'Tamil Nadu',
+    pf: {
+      employeeContribution: 12,
+      employerContribution: 12,
+      enabled: true
+    },
+    esi: {
+      employeeContribution: 0.75,
+      employerContribution: 3.25,
+      enabled: true
+    },
+    professionalTax: {
+      enabled: true,
+      monthlyMax: 200
+    }
   });
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value
-    });
+  const handleChange = (section, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        [field]: Number(value) || value
+      }
+    }));
   };
 
-  const handleSubmit = async (e) => {
+  const submitForm = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      await axios.post('/api/v1/statutory-rules', formData, {
-        withCredentials: true
-      });
+      // ✅ FIXED: Correct endpoint + credentials
+      const response = await axios.post(
+        '/api/v1/statutory/rules', 
+        formData,
+        { withCredentials: true }
+      );
 
-      alert('Statutory rule created successfully!');
-      setFormData({
-        country: 'India',
-        state: '',
-        effectiveYear: new Date().getFullYear(),
-        ruleType: 'PF_THRESHOLD',
-        description: '',
-        employeeContribution: '',
-        employerContribution: '',
-        effectiveFrom: '',
-        effectiveTo: ''
-      });
-
+      alert('✅ Statutory Rule Created Successfully!');
       if (onSuccess) onSuccess();
     } catch (err) {
+      console.error('Error:', err.response?.data);
       setError(err.response?.data?.message || 'Failed to create rule');
     } finally {
       setLoading(false);
@@ -56,143 +59,109 @@ export default function StatutoryRuleForm({ onSuccess }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-xl font-bold mb-6">Create New Statutory Rule</h2>
-
+    <div className="bg-white p-8 rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold mb-6">📋 Create Statutory Rule</h2>
+      
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-4 rounded">
+          ❌ {error}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-          <select
-            name="country"
-            value={formData.country}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+      <form onSubmit={submitForm} className="space-y-6">
+        <div className="grid grid-cols-2 gap-6">
+          {/* Country */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+            <input
+              type="text"
+              value={formData.country}
+              onChange={(e) => setFormData({...formData, country: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              required
+            />
+          </div>
+
+          {/* State */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
+            <input
+              type="text"
+              value={formData.state}
+              onChange={(e) => setFormData({...formData, state: e.target.value})}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              required
+            />
+          </div>
+        </div>
+
+        {/* PF */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+          <h3 className="col-span-full font-semibold text-blue-800 mb-2">PF Contributions</h3>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Employee (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.pf.employeeContribution}
+              onChange={(e) => handleChange('pf', 'employeeContribution', e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Employer (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.pf.employerContribution}
+              onChange={(e) => handleChange('pf', 'employerContribution', e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </div>
+        </div>
+
+        {/* ESI */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-green-50 rounded-lg">
+          <h3 className="col-span-full font-semibold text-green-800 mb-2">ESI Contributions</h3>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Employee (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.esi.employeeContribution}
+              onChange={(e) => handleChange('esi', 'employeeContribution', e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Employer (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={formData.esi.employerContribution}
+              onChange={(e) => handleChange('esi', 'employerContribution', e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-4 pt-4">
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:bg-gray-400 transition"
           >
-            <option value="India">India</option>
-            <option value="USA">USA</option>
-            <option value="UK">UK</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-          <input
-            type="text"
-            name="state"
-            value={formData.state}
-            onChange={handleChange}
-            placeholder="e.g., Tamil Nadu"
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Effective Year</label>
-          <input
-            type="number"
-            name="effectiveYear"
-            value={formData.effectiveYear}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Rule Type</label>
-          <select
-            name="ruleType"
-            value={formData.ruleType}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
+            {loading ? '⏳ Creating...' : '✅ Create Statutory Rule'}
+          </button>
+          <button
+            type="button"
+            onClick={onSuccess}
+            className="bg-gray-500 text-white px-8 py-3 rounded-lg hover:bg-gray-600 font-semibold transition"
           >
-            <option value="PF_THRESHOLD">PF Threshold</option>
-            <option value="ESI_THRESHOLD">ESI Threshold</option>
-            <option value="PT_THRESHOLD">Professional Tax</option>
-            <option value="INCOME_TAX">Income Tax</option>
-          </select>
+            ❌ Cancel
+          </button>
         </div>
-
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-          <textarea
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            placeholder="Describe this rule..."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 h-20"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Employee Contribution (%)</label>
-          <input
-            type="number"
-            name="employeeContribution"
-            value={formData.employeeContribution}
-            onChange={handleChange}
-            placeholder="12"
-            step="0.1"
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Employer Contribution (%)</label>
-          <input
-            type="number"
-            name="employerContribution"
-            value={formData.employerContribution}
-            onChange={handleChange}
-            placeholder="12"
-            step="0.1"
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Effective From</label>
-          <input
-            type="date"
-            name="effectiveFrom"
-            value={formData.effectiveFrom}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Effective Till</label>
-          <input
-            type="date"
-            name="effectiveTo"
-            value={formData.effectiveTo}
-            onChange={handleChange}
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2"
-          />
-        </div>
-      </div>
-
-      <div className="flex gap-4 pt-4">
-        <button
-          type="submit"
-          disabled={loading}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition"
-        >
-          {loading ? 'Creating...' : 'Create Rule'}
-        </button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }
