@@ -1,169 +1,153 @@
-const TaxSlab = require('../models/TaxSlab');
+const TaxSlab = require("../models/TaxSlab");
 
 exports.createTaxSlab = async (req, res) => {
   try {
-    const {
+    // NO AUTH CHECK
+    const { country, financialYear, slabName, slabs, standardDeduction, basicExemptionLimit, applicableForRegime } = req.body;
+
+    const taxSlab = new TaxSlab({
       country,
       financialYear,
       slabName,
       slabs,
       standardDeduction,
       basicExemptionLimit,
-      applicableForRegime
-    } = req.body;
-
-    // Validation
-    if (!country || !financialYear || !slabs || slabs.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Missing required fields or empty slabs array'
-      });
-    }
-
-    // Validate slab ranges don't overlap
-    const sortedSlabs = [...slabs].sort((a, b) => a.minIncome - b.minIncome);
-    for (let i = 0; i < sortedSlabs.length - 1; i++) {
-      if (sortedSlabs[i].maxIncome >= sortedSlabs[i + 1].minIncome) {
-        return res.status(400).json({
-          success: false,
-          message: 'Tax slab ranges overlap. Please verify the ranges.'
-        });
-      }
-    }
-
-    const newTaxSlab = new TaxSlab({
-      country,
-      financialYear,
-      slabName,
-      slabs: sortedSlabs,
-      standardDeduction,
-      basicExemptionLimit,
       applicableForRegime,
-      createdBy: req.session.userId
+      status: "ACTIVE"
     });
 
-    await newTaxSlab.save();
-
-    res.status(201).json({
-      success: true,
-      message: 'Tax slab created successfully',
-      data: newTaxSlab
-    });
+    await taxSlab.save();
+    res.status(201).json({ success: true, data: taxSlab, message: "Tax slab created successfully" });
   } catch (error) {
-    console.error('Error creating tax slab:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to create tax slab',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.getTaxSlabs = async (req, res) => {
   try {
-    const { country, financialYear, regime } = req.query;
+    // NO AUTH CHECK
+    const { country, financialYear } = req.query;
+    const filters = { status: "ACTIVE" };
 
-    const filter = { status: 'ACTIVE' };
-    if (country) filter.country = country;
-    if (financialYear) filter.financialYear = financialYear;
-    if (regime) filter.applicableForRegime = regime;
+    if (country) filters.country = country;
+    if (financialYear) filters.financialYear = financialYear;
 
-    const taxSlabs = await TaxSlab.find(filter)
-      .populate('createdBy', 'email')
-      .sort({ financialYear: -1 });
-
-    res.json({
-      success: true,
-      data: taxSlabs
-    });
+    const slabs = await TaxSlab.find(filters);
+    res.json({ success: true, data: slabs });
   } catch (error) {
-    console.error('Error fetching tax slabs:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch tax slabs',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.calculateTax = async (req, res) => {
+exports.calculateTaxWithoutDB = async (req, res) => {
   try {
-    const {
-      grossSalary,
-      financialYear,
-      country,
-      regime = 'OLD'
-    } = req.body;
+    const { grossSalary, regime } = req.body;
 
-    if (!grossSalary || !financialYear || !country) {
+    console.log("REGIME RECEIVED:", regime);
+
+    if (!grossSalary) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields: grossSalary, financialYear, country'
+        message: "Gross salary is required"
       });
     }
 
-    // Find applicable tax slab
-    const taxSlab = await TaxSlab.findOne({
-      country,
-      financialYear,
-      status: 'ACTIVE',
-      $or: [
-        { applicableForRegime: regime },
-        { applicableForRegime: 'BOTH' }
-      ]
-    });
+    const salary = Number(grossSalary);
+    const STANDARD_DEDUCTION = 50000;
 
-    if (!taxSlab) {
-      return res.status(404).json({
-        success: false,
-        message: 'Tax slab not found for the given criteria'
-      });
-    }
+    const taxableIncome = Math.max(0, salary - STANDARD_DEDUCTION);
 
-    // Calculate taxable income
-    let taxableIncome = grossSalary - (taxSlab.standardDeduction || 0);
-    if (taxableIncome < taxSlab.basicExemptionLimit) {
-      taxableIncome = 0;
-    }
+    let incomeTax = 0;
+    let surcharge = 0;
 
-    // Calculate tax based on slabs
-    let tax = 0;
-    let applicableSlab = null;
-
-    for (const slab of taxSlab.slabs) {
-      if (taxableIncome >= slab.minIncome && taxableIncome <= slab.maxIncome) {
-        const taxableAmount = taxableIncome - slab.minIncome;
-        tax = (taxableAmount * slab.taxRate) / 100;
-        applicableSlab = slab;
-        break;
+    // ---------- OLD REGIME ----------
+    if (regime === "OLD") {
+      if (taxableIncome > 250000) {
+        incomeTax += Math.min(taxableIncome - 250000, 250000) * 0.05;
+      }
+      if (taxableIncome > 500000) {
+        incomeTax += Math.min(taxableIncome - 500000, 500000) * 0.20;
+      }
+      if (taxableIncome > 1000000) {
+        incomeTax += (taxableIncome - 1000000) * 0.30;
       }
     }
 
-    // Calculate surcharge and cess
-    const surcharge = (tax * (applicableSlab?.surcharge || 0)) / 100;
-    const cess = (tax * (applicableSlab?.cess || 0)) / 100;
-    const totalTax = tax + surcharge + cess;
+    // ---------- NEW REGIME ----------
+    if (regime === "NEW") {
+      if (taxableIncome > 300000) {
+        incomeTax += Math.min(taxableIncome - 300000, 300000) * 0.05;
+      }
+      if (taxableIncome > 600000) {
+        incomeTax += Math.min(taxableIncome - 600000, 300000) * 0.10;
+      }
+      if (taxableIncome > 900000) {
+        incomeTax += Math.min(taxableIncome - 900000, 300000) * 0.15;
+      }
+      if (taxableIncome > 1200000) {
+        incomeTax += Math.min(taxableIncome - 1200000, 300000) * 0.20;
+      }
+      if (taxableIncome > 1500000) {
+        incomeTax += (taxableIncome - 1500000) * 0.30;
+      }
+    }
+
+    // ---------- SURCHARGE (optional, correct rule) ----------
+    if (taxableIncome > 5000000) {
+      surcharge = incomeTax * 0.10; // example 10%
+    }
+
+    // ---------- CESS (4%) ----------
+    const cess = (incomeTax + surcharge) * 0.04;
+
+    const totalTax = incomeTax + surcharge + cess;
+    const netTakeHome = salary - totalTax;
 
     res.json({
       success: true,
       data: {
-        grossSalary,
-        standardDeduction: taxSlab.standardDeduction,
+        grossSalary: salary,
         taxableIncome,
-        tax: Math.round(tax),
+        incomeTax: Math.round(incomeTax),
         surcharge: Math.round(surcharge),
         cess: Math.round(cess),
         totalTax: Math.round(totalTax),
-        netTakeHome: Math.round(grossSalary - totalTax),
-        applicableSlab
+        netTakeHome: Math.round(netTakeHome)
       }
     });
+
   } catch (error) {
-    console.error('Error calculating tax:', error);
+    console.error("Tax calc error:", error);
     res.status(500).json({
       success: false,
-      message: 'Failed to calculate tax',
-      error: error.message
+      message: error.message
     });
   }
 };
+
+exports.deleteTaxSlab = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const deleted = await TaxSlab.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Tax slab not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Tax slab deleted successfully"
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+
